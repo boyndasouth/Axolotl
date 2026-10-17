@@ -1,0 +1,5 @@
+id: date_format
+description: order_date switches from ISO (2026-10-01) to US format (10/01/2026)
+drift: date_format
+params: {fmt: "%m/%d/%Y"}
+expected_outcome: repair

@@ -1,0 +1,5 @@
+id: bad_rows
+description: about 5% of rows arrive with null or negative amounts and must be kept out of the table
+drift: bad_rows
+params: {rate: 0.05}
+expected_outcome: repair

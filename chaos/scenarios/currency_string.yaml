@@ -1,0 +1,4 @@
+id: currency_string
+description: amount changes from a number to a formatted string with a currency symbol ("$12.50")
+drift: currency_string
+expected_outcome: repair

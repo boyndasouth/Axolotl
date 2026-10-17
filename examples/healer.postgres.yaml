@@ -1,0 +1,40 @@
+# A starting point for healing your own pipeline. Copy it to healer.yaml at the root of
+# the repo that holds your transform code, adjust the paths, then:
+#
+#   export WAREHOUSE_DSN=postgresql://user:pass@host:5432/analytics
+#   export KAFKA_BOOTSTRAP=your-broker:9092
+#   python -m healer.spec check --root /path/to/your/repo
+#   SHP_WORKDIR=/path/to/your/repo SHP_BUS=kafka python -m stream.server
+#
+# The healer consumes `source.topic`, loads clean rows into the sink, quarantines the rest
+# in `quarantine.topic`, and opens PRs against your repo that touch only `editable` files.
+version: 1
+pipelines:
+  - name: payments
+    transform: etl/payments/transform.py:transform
+    mappings: etl/payments/mappings.yaml
+    contract: etl/contracts/payments.py:PaymentsSchema
+    key: payment_id
+
+    editable:
+      - etl/payments/*.py
+      - etl/payments/mappings.yaml
+    read_only:
+      - etl/contracts                         # every file under it
+    tests: tests/payments
+    code: [etl, tests/payments]
+
+    source:
+      type: kafka
+      topic: payments.raw                     # your existing topic; nothing is produced into it
+    quarantine:
+      topic: payments.raw.dlq
+
+    sink:
+      type: postgres
+      dsn: ${WAREHOUSE_DSN}
+      table: analytics.payments_clean         # created if missing, from the contract's columns
+
+    holdout:
+      live_sample:
+        rows: 1000                            # no hand-made fixtures: real traffic is the regression set

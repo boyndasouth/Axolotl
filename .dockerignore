@@ -1,0 +1,11 @@
+.venv
+venv
+__pycache__
+data
+logs
+reports
+bench/results.duckdb
+bench/artifacts
+.git
+.env
+web/node_modules

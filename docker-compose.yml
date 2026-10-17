@@ -1,0 +1,69 @@
+# The message broker for the streaming pipeline, plus a UI to watch its topics.
+#
+#   docker compose up -d                  Redpanda on localhost:19092, Redpanda Console on http://localhost:8080
+#   python -m stream.server               then the control plane and live console on http://localhost:8100
+#
+# Run the control plane on your own machine, not in a container: it starts throwaway
+# Docker containers to verify each patch, which is simplest from the host.
+#
+# Batch mode (the original pull-every-5-minutes pipeline) is still here:
+#   docker compose --profile batch up     fake upstream API on :8000 and the Streamlit benchmark dashboard on :8501
+services:
+  redpanda:
+    image: docker.redpanda.com/redpandadata/redpanda:v26.2.5
+    command:
+      - redpanda
+      - start
+      - --kafka-addr internal://0.0.0.0:9092,external://0.0.0.0:19092
+      - --advertise-kafka-addr internal://redpanda:9092,external://localhost:19092
+      - --mode dev-container
+      - --smp 1
+      - --memory 1G
+      - --default-log-level=warn
+    ports:
+      - "19092:19092"     # Kafka API, for the control plane on your machine
+      - "19644:9644"      # admin API
+    volumes:
+      - redpanda:/var/lib/redpanda/data
+    healthcheck:
+      test: ["CMD-SHELL", "rpk cluster health | grep -E 'Healthy:.+true' || exit 1"]
+      interval: 5s
+      timeout: 10s
+      retries: 20
+
+  console:
+    image: docker.redpanda.com/redpandadata/console:v3.12.0
+    entrypoint: /bin/sh
+    command: -c 'echo "$$CONSOLE_CONFIG_FILE" > /tmp/config.yml && /app/console'
+    environment:
+      CONFIG_FILEPATH: /tmp/config.yml
+      CONSOLE_CONFIG_FILE: |
+        kafka:
+          brokers: ["redpanda:9092"]
+        redpanda:
+          adminApi:
+            enabled: true
+            urls: ["http://redpanda:9644"]
+    ports:
+      - "8080:8080"
+    depends_on:
+      redpanda:
+        condition: service_healthy
+
+  # ---- batch mode -----------------------------------------------------------------
+  upstream-api:
+    profiles: ["batch"]
+    build: .
+    command: uvicorn upstream_api.main:app --host 0.0.0.0 --port 8000
+    ports: ["8000:8000"]
+    volumes: ["./data:/app/data"]
+
+  dashboard:
+    profiles: ["batch"]
+    build: .
+    command: streamlit run dashboard/app.py --server.address 0.0.0.0 --server.port 8501
+    ports: ["8501:8501"]
+    volumes: ["./bench:/app/bench"]
+
+volumes:
+  redpanda: {}

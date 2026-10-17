@@ -1,0 +1,4 @@
+id: status_case
+description: status values arrive upper-cased (SHIPPED)
+drift: status_case
+expected_outcome: repair

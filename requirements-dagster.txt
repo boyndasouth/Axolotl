@@ -1,0 +1,5 @@
+# Optional: run the batch pipeline under Dagster (pipeline/definitions.py).
+# The streaming pipeline doesn't need it.
+#   pip install -r requirements-dagster.txt
+dagster>=1.9
+dagster-webserver>=1.9
