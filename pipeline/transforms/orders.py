@@ -14,7 +14,22 @@ OUTPUT_COLUMNS = ["order_id", "customer_id", "amount", "currency", "order_date",
 def transform_orders(records: list[dict], mappings: dict) -> pd.DataFrame:
     cfg = mappings["orders"]
     df = pd.DataFrame.from_records(records)
+
+    # Apply the standard rename mapping (e.g., cust_id -> customer_id)
     df = df.rename(columns=cfg.get("rename", {}))
+
+    # New upstream may use client_id instead of cust_id.
+    # Populate/replace missing customer_id values from client_id on a row‑wise basis.
+    if "client_id" in df.columns:
+        if "customer_id" not in df.columns:
+            # No customer_id column yet – create it from client_id.
+            df["customer_id"] = df["client_id"]
+        else:
+            # Fill any gaps where cust_id was missing.
+            df["customer_id"] = df["customer_id"].fillna(df["client_id"])
+        # Drop client_id if it still exists after the above handling.
+        if "client_id" in df.columns:
+            df = df.drop(columns=["client_id"])
 
     missing = [c for c in OUTPUT_COLUMNS if c not in df.columns]
     if missing:
