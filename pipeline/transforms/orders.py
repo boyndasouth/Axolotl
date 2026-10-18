@@ -6,9 +6,30 @@ The contract the output must satisfy lives in pipeline/schemas.py.
 
 from __future__ import annotations
 
+import re
 import pandas as pd
 
 OUTPUT_COLUMNS = ["order_id", "customer_id", "amount", "currency", "order_date", "status"]
+
+
+def _parse_amount(value):
+    """Convert amount values to float.
+
+    Handles:
+    - Numeric types (int, float) – returned unchanged.
+    - Formatted strings with currency symbols and commas, e.g. "€1,637.01".
+    Returns a float or raises ValueError if parsing fails.
+    """
+    if isinstance(value, (int, float)):
+        return float(value)
+    if isinstance(value, str):
+        # Remove any character that is not a digit, dot, comma, or minus sign.
+        cleaned = re.sub(r"[^\d.,-]+", "", value)
+        # Remove commas used as thousand separators.
+        cleaned = cleaned.replace(",", "")
+        # Convert to float.
+        return float(cleaned)
+    raise ValueError(f"Unsupported amount type: {type(value)}")
 
 
 def transform_orders(records: list[dict], mappings: dict) -> pd.DataFrame:
@@ -34,6 +55,9 @@ def transform_orders(records: list[dict], mappings: dict) -> pd.DataFrame:
     missing = [c for c in OUTPUT_COLUMNS if c not in df.columns]
     if missing:
         raise KeyError(f"missing required columns after rename: {missing}")
+
+    # Parse amount values that may be formatted strings.
+    df["amount"] = df["amount"].apply(_parse_amount)
 
     df = df[OUTPUT_COLUMNS].copy()
     df["order_id"] = df["order_id"].astype(str)
