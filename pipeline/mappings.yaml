@@ -3,4 +3,5 @@
 orders:
   rename:
     cust_id: customer_id
+    client_id: customer_id
   date_format: "%Y-%m-%d"
