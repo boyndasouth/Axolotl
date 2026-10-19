@@ -1,0 +1,4 @@
+# Source-to-canonical settings for the recentchange feed. The repair agent may edit
+# this file and etl/wiki/*.py (see healer.yaml); never the contract or the tests.
+rename: {}
+timestamp_unit: s          # upstream sends Unix seconds

@@ -1,0 +1,4 @@
+id: upstream_outage
+description: upstream returns an empty batch. Nothing to fix in code, so the agent must escalate
+drift: empty_response
+expected_outcome: escalate

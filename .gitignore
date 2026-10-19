@@ -1,0 +1,21 @@
+__pycache__/
+*.pyc
+.venv/
+venv/
+.env
+.pytest_cache/
+
+# runtime state
+data/*
+!data/schema_snapshots/
+logs/
+reports/
+bench/results.duckdb*
+bench/artifacts/
+
+# dagster
+.dagster/
+tmp*/
+
+# console
+web/node_modules/

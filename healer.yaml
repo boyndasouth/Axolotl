@@ -1,0 +1,48 @@
+# What the healer heals. One entry per pipeline; SHP_PIPELINE=<name> picks one
+# (otherwise the first). Paths are relative to this file. Strings may use ${VAR} or
+# ${VAR:-default}, so secrets like a database DSN stay in the environment.
+#
+#   python -m healer.spec check      # validate this file and print what the agent may touch
+#
+# This file describes the demo orders pipeline. examples/healer.postgres.yaml is a
+# starting point for your own pipeline.
+version: 1
+pipelines:
+  - name: orders
+
+    # Your code. The transform is called as transform(records, mappings) and returns a
+    # DataFrame; the contract is a pandera DataFrameSchema it must satisfy.
+    transform: pipeline/transforms/orders.py:transform_orders
+    mappings: pipeline/mappings.yaml          # optional; passed to the transform as a dict
+    contract: pipeline/schemas.py:OrdersSchema
+    key: order_id                             # unique per record: the sink upserts on it
+
+    # What the repair agent may change. The contract, `tests` and `read_only` are always
+    # off-limits; a pattern that reaches them makes this file invalid.
+    editable:
+      - pipeline/transforms/*.py
+      - pipeline/mappings.yaml
+    read_only:
+      - tests/pipeline/test_orders.py         # shown to the agents, never editable
+    tests: tests/pipeline                     # run in the sandbox against every patch
+    code: [pipeline, tests/pipeline]          # what gets copied into the sandbox
+
+    source:
+      type: kafka
+      topic: orders
+      demo_producer: true                     # the built-in fake upstream; never set this on a real topic
+    quarantine:
+      topic: orders.dlq
+
+    sink:
+      type: duckdb                            # or postgres (see examples/healer.postgres.yaml)
+      path: stream_warehouse.duckdb           # relative to the data dir
+      table: orders_clean
+
+    holdout:
+      fixtures: chaos/fixtures                # the demo's hand-made scenarios; omit for real pipelines
+      live_sample:
+        rows: 500                             # raw records + the clean rows they produced, from real traffic
+
+    compare:
+      float_decimals: 2                       # how exactly floats must match the expected output

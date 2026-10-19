@@ -1,0 +1,9 @@
+[project]
+name = "self-healing-pipeline"
+version = "0.1.0"
+description = "Agents that detect, diagnose and repair a broken data pipeline, with sandboxed verification and an MTTR benchmark"
+requires-python = ">=3.11"
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = "-q"

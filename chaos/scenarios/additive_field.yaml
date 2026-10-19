@@ -1,0 +1,4 @@
+id: additive_field
+description: upstream adds a new "channel" field. Harmless, so the agent must not open an incident
+drift: add_field
+expected_outcome: no_incident

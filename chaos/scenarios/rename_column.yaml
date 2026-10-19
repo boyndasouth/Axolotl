@@ -1,0 +1,5 @@
+id: rename_column
+description: Upstream renames cust_id to client_id
+drift: rename_field
+params: {src: cust_id, dst: client_id}
+expected_outcome: repair

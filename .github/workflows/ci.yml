@@ -1,0 +1,64 @@
+# Runs on every push and PR, including the agent's own self-heal PRs:
+# an independent second check on a patch, outside anything the agent controls.
+name: ci
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    services:
+      postgres:            # for the Postgres sink tests
+        image: postgres:16
+        env:
+          POSTGRES_PASSWORD: postgres
+        ports: ["5432:5432"]
+        options: >-
+          --health-cmd pg_isready --health-interval 5s --health-timeout 5s --health-retries 10
+    env:
+      SHP_TEST_POSTGRES_DSN: postgresql://postgres:postgres@localhost:5432/postgres
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+      - run: pip install -r requirements.txt
+
+      - name: Pipeline unit tests
+        run: python -m pytest tests/pipeline
+
+      - name: healer.yaml is valid
+        run: python -m healer.spec check
+
+      - name: Pipeline spec, custom pipeline end to end, sinks (DuckDB and Postgres)
+        run: python -m pytest tests/healer tests/stream/test_sinks.py
+
+      - name: Build the sandbox image
+        run: docker build -t shp-sandbox:latest sandbox/
+
+      - name: Agent graph end to end (scripted LLM, Docker sandbox)
+        env:
+          SHP_TEST_BACKEND: docker
+        run: python -m pytest tests/agent
+
+      - name: Streaming pipeline and control plane (in-memory bus, Kafka mock broker)
+        run: python -m pytest tests/stream
+
+  console:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: web
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: npm
+          cache-dependency-path: web/package-lock.json
+      - run: npm ci
+      - name: Type-check and build the console
+        run: npm run build

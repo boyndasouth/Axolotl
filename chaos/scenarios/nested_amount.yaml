@@ -1,0 +1,4 @@
+id: nested_amount
+description: amount and currency collapse into a nested object {"value", "currency"}
+drift: nest_amount
+expected_outcome: repair

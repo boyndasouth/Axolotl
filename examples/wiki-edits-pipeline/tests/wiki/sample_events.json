@@ -1,0 +1,215 @@
+[
+ {
+  "$schema": "/mediawiki/recentchange/1.0.0",
+  "meta": {
+   "uri": "https://en.wikipedia.org/wiki/X",
+   "request_id": "00000000-0000-0000-0000-000000000001",
+   "id": "00000000-0000-0000-0000-0000000f4241",
+   "dt": "2026-10-18T18:21:07Z",
+   "domain": "en.wikipedia.org",
+   "stream": "mediawiki.recentchange",
+   "topic": "eqiad.mediawiki.recentchange",
+   "partition": 0,
+   "offset": 5001
+  },
+  "server_url": "https://en.wikipedia.org",
+  "server_name": "en.wikipedia.org",
+  "server_script_path": "/w",
+  "wiki": "enwiki",
+  "id": 1801,
+  "type": "edit",
+  "namespace": 0,
+  "title": "Ada Lovelace",
+  "title_url": "https://en.wikipedia.org/wiki/Ada_Lovelace",
+  "comment": "copyedit",
+  "timestamp": 1792347667,
+  "user": "Wikignome42",
+  "bot": false,
+  "notify_url": "https://en.wikipedia.org/w/index.php?diff=2&oldid=1",
+  "minor": true,
+  "patrolled": true,
+  "length": {
+   "old": 48210,
+   "new": 48236
+  },
+  "revision": {
+   "old": 1,
+   "new": 2
+  },
+  "event_id": "00000000-0000-0000-0000-0000000f4241"
+ },
+ {
+  "$schema": "/mediawiki/recentchange/1.0.0",
+  "meta": {
+   "uri": "https://de.wikipedia.org/wiki/X",
+   "request_id": "00000000-0000-0000-0000-000000000002",
+   "id": "00000000-0000-0000-0000-0000000f4242",
+   "dt": "2026-10-18T18:21:07Z",
+   "domain": "de.wikipedia.org",
+   "stream": "mediawiki.recentchange",
+   "topic": "eqiad.mediawiki.recentchange",
+   "partition": 0,
+   "offset": 5002
+  },
+  "server_url": "https://de.wikipedia.org",
+  "server_name": "de.wikipedia.org",
+  "server_script_path": "/w",
+  "wiki": "dewiki",
+  "id": 1802,
+  "type": "new",
+  "namespace": 0,
+  "title": "Neuer Artikel",
+  "title_url": "https://de.wikipedia.org/wiki/Neuer_Artikel",
+  "comment": "neu",
+  "timestamp": 1792347668,
+  "user": "Autorin",
+  "bot": false,
+  "notify_url": "https://de.wikipedia.org/w/index.php?oldid=9",
+  "minor": false,
+  "patrolled": false,
+  "length": {
+   "new": 1532
+  },
+  "revision": {
+   "new": 9
+  },
+  "event_id": "00000000-0000-0000-0000-0000000f4242"
+ },
+ {
+  "$schema": "/mediawiki/recentchange/1.0.0",
+  "meta": {
+   "uri": "https://commons.wikimedia.org/wiki/X",
+   "request_id": "00000000-0000-0000-0000-000000000003",
+   "id": "00000000-0000-0000-0000-0000000f4243",
+   "dt": "2026-10-18T18:21:07Z",
+   "domain": "commons.wikimedia.org",
+   "stream": "mediawiki.recentchange",
+   "topic": "eqiad.mediawiki.recentchange",
+   "partition": 0,
+   "offset": 5003
+  },
+  "server_url": "https://commons.wikimedia.org",
+  "server_name": "commons.wikimedia.org",
+  "server_script_path": "/w",
+  "wiki": "commonswiki",
+  "id": null,
+  "type": "log",
+  "namespace": 6,
+  "title": "File:Sunset.jpg",
+  "title_url": "https://commons.wikimedia.org/wiki/File:Sunset.jpg",
+  "comment": "",
+  "timestamp": 1792347669,
+  "user": "Uploader",
+  "bot": false,
+  "log_id": 77,
+  "log_type": "upload",
+  "log_action": "upload",
+  "log_action_comment": "uploaded",
+  "event_id": "00000000-0000-0000-0000-0000000f4243"
+ },
+ {
+  "$schema": "/mediawiki/recentchange/1.0.0",
+  "meta": {
+   "uri": "https://en.wikipedia.org/wiki/X",
+   "request_id": "00000000-0000-0000-0000-000000000004",
+   "id": "00000000-0000-0000-0000-0000000f4244",
+   "dt": "2026-10-18T18:21:07Z",
+   "domain": "en.wikipedia.org",
+   "stream": "mediawiki.recentchange",
+   "topic": "eqiad.mediawiki.recentchange",
+   "partition": 0,
+   "offset": 5004
+  },
+  "server_url": "https://en.wikipedia.org",
+  "server_name": "en.wikipedia.org",
+  "server_script_path": "/w",
+  "wiki": "enwiki",
+  "id": 1804,
+  "type": "categorize",
+  "namespace": 14,
+  "title": "Category:Mathematicians",
+  "title_url": "https://en.wikipedia.org/wiki/Category:Mathematicians",
+  "comment": "[[:Ada Lovelace]] added to category",
+  "timestamp": 1792347670,
+  "user": "Wikignome42",
+  "bot": false,
+  "notify_url": "https://en.wikipedia.org/w/index.php?diff=3",
+  "event_id": "00000000-0000-0000-0000-0000000f4244"
+ },
+ {
+  "$schema": "/mediawiki/recentchange/1.0.0",
+  "meta": {
+   "uri": "https://www.wikidata.org/wiki/X",
+   "request_id": "00000000-0000-0000-0000-000000000005",
+   "id": "00000000-0000-0000-0000-0000000f4245",
+   "dt": "2026-10-18T18:21:07Z",
+   "domain": "www.wikidata.org",
+   "stream": "mediawiki.recentchange",
+   "topic": "eqiad.mediawiki.recentchange",
+   "partition": 0,
+   "offset": 5005
+  },
+  "server_url": "https://www.wikidata.org",
+  "server_name": "www.wikidata.org",
+  "server_script_path": "/w",
+  "wiki": "wikidatawiki",
+  "id": 1805,
+  "type": "edit",
+  "namespace": 0,
+  "title": "Q42",
+  "title_url": "https://www.wikidata.org/wiki/Q42",
+  "comment": "/* wbsetclaim-update */",
+  "timestamp": 1792347671,
+  "user": "QuickStatementsBot",
+  "bot": true,
+  "minor": false,
+  "patrolled": true,
+  "length": {
+   "old": 210300,
+   "new": 210180
+  },
+  "revision": {
+   "old": 5,
+   "new": 6
+  },
+  "event_id": "00000000-0000-0000-0000-0000000f4245"
+ },
+ {
+  "$schema": "/mediawiki/recentchange/1.0.0",
+  "meta": {
+   "uri": "https://fr.wikipedia.org/wiki/X",
+   "request_id": "00000000-0000-0000-0000-000000000006",
+   "id": "00000000-0000-0000-0000-0000000f4246",
+   "dt": "2026-10-18T18:21:07Z",
+   "domain": "fr.wikipedia.org",
+   "stream": "mediawiki.recentchange",
+   "topic": "eqiad.mediawiki.recentchange",
+   "partition": 0,
+   "offset": 5006
+  },
+  "server_url": "https://fr.wikipedia.org",
+  "server_name": "fr.wikipedia.org",
+  "server_script_path": "/w",
+  "wiki": "frwiki",
+  "id": 1806,
+  "type": "edit",
+  "namespace": 0,
+  "title": "Paris",
+  "title_url": "https://fr.wikipedia.org/wiki/Paris",
+  "comment": "",
+  "timestamp": 1792347672,
+  "user": "2001:db8::1",
+  "bot": false,
+  "minor": false,
+  "patrolled": false,
+  "length": {
+   "old": 300000,
+   "new": 300012
+  },
+  "revision": {
+   "old": 7,
+   "new": 8
+  },
+  "event_id": "00000000-0000-0000-0000-0000000f4246"
+ }
+]

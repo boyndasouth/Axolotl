@@ -1,0 +1,31 @@
+# Python 3.11 or 3.12 recommended (3.12 on Windows avoids compiled-dependency build issues)
+
+# pipeline
+pandas>=2.2
+pandera>=0.20
+pyyaml>=6.0
+duckdb>=1.0
+# Postgres sink (healer.yaml sink.type: postgres); prebuilt wheels, no libpq install needed
+psycopg[binary]>=3.1
+httpx>=0.27
+structlog>=24.1
+fastapi>=0.110
+uvicorn[standard]>=0.29
+
+# streaming: Kafka client (Redpanda speaks the Kafka API; prebuilt wheels for Windows, macOS, Linux)
+confluent-kafka>=2.5
+
+# agents
+langgraph>=1.0
+langgraph-checkpoint-sqlite>=2.0
+litellm>=1.50
+GitPython>=3.1
+PyGithub>=2.3
+python-dotenv>=1.0
+
+# benchmark dashboard (the live console in web/ covers day-to-day use)
+streamlit>=1.40
+altair>=5.0
+
+# tests
+pytest>=8.0

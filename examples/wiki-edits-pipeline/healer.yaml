@@ -1,0 +1,36 @@
+# The healer's view of this pipeline: live Wikipedia edits from Redpanda into Postgres.
+#
+#   python -m healer.spec check --root .     (run from the healer project's venv)
+version: 1
+pipelines:
+  - name: wiki_edits
+
+    transform: etl/wiki/transform.py:transform
+    mappings: etl/wiki/mappings.yaml
+    contract: etl/contracts/wiki.py:WikiChangesSchema
+    key: event_id                       # stamped by the producer from meta.id
+
+    # The agent may change the transform and its settings, nothing else. The producer
+    # (producer/) is the "upstream": it isn't in `code`, so the agent never sees it.
+    editable:
+      - etl/wiki/*.py
+      - etl/wiki/mappings.yaml
+    read_only:
+      - tests/wiki/sample_events.json
+    tests: tests/wiki
+    code: [etl, tests/wiki]
+
+    source:
+      type: kafka
+      topic: wiki.edits
+    quarantine:
+      topic: wiki.edits.dlq
+
+    sink:
+      type: postgres
+      dsn: ${WAREHOUSE_DSN}
+      table: analytics.wiki_changes
+
+    holdout:
+      live_sample:
+        rows: 1000                      # real edits + the rows they produced

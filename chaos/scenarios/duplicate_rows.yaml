@@ -1,0 +1,5 @@
+id: duplicate_rows
+description: upstream retries resend about 10% of rows verbatim
+drift: duplicate_rows
+params: {rate: 0.1}
+expected_outcome: repair
