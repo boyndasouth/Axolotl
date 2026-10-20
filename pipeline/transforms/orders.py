@@ -53,8 +53,10 @@ def transform_orders(raw_records: list[dict], mappings: dict) -> pd.DataFrame:
        additional renames that are safe for all rows).
     3. Applies the flexible ``customer_id`` handling to support both old and new
        upstream field names.
-    4. Normalises the ``order_date`` format.
-    5. Re‑orders columns to match ``OUTPUT_COLUMNS``.
+    4. Deduplicates rows by ``order_id`` (keeping the first occurrence) to satisfy
+       the uniqueness contract.
+    5. Normalises the ``order_date`` format.
+    6. Re‑orders columns to match ``OUTPUT_COLUMNS``.
     """
     # 1. Load raw data into a DataFrame.
     df = pd.DataFrame(raw_records)
@@ -75,13 +77,17 @@ def transform_orders(raw_records: list[dict], mappings: dict) -> pd.DataFrame:
     # 3. Populate the canonical ``customer_id`` column.
     df = _apply_customer_id(df)
 
-    # 4. Normalise the order_date format using the configured date format.
+    # 4. Deduplicate by order_id, keeping the first occurrence.
+    if "order_id" in df.columns:
+        df = df.drop_duplicates(subset=["order_id"], keep="first")
+
+    # 5. Normalise the order_date format using the configured date format.
     date_fmt = mappings.get("orders", {}).get("date_format", "%Y-%m-%d")
     # Ensure the column exists before attempting conversion.
     if "order_date" in df.columns:
         df["order_date"] = pd.to_datetime(df["order_date"], errors="coerce").dt.strftime(date_fmt)
 
-    # 5. Re‑order columns to the expected output order.
+    # 6. Re‑order columns to the expected output order.
     # Any missing columns will raise a KeyError, which is appropriate because
     # they represent a contract violation.
     df = df[OUTPUT_COLUMNS]
