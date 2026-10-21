@@ -30,7 +30,10 @@ def _apply_customer_id(df: pd.DataFrame) -> pd.DataFrame:
     has_cust = "cust_id" in df.columns
     has_client = "client_id" in df.columns
 
-    if has_cust:
+    if has_cust and has_client:
+        # Both columns exist; use cust_id where present, otherwise fall back to client_id.
+        df["customer_id"] = df["cust_id"].combine_first(df["client_id"])
+    elif has_cust:
         # Use the original column.
         df["customer_id"] = df["cust_id"]
     elif has_client:
@@ -129,10 +132,13 @@ def transform_orders(raw_records: list[dict], mappings: dict) -> pd.DataFrame:
         # Extract numeric amount (handles both dict and plain values).
         df["amount"], extracted_currency = _extract_amount_and_currency(original_amount)
 
-        # If the upstream removed the top‑level ``currency`` column, fill it from
-        # the extracted values (but do not overwrite an existing column).
-        if "currency" not in df.columns and extracted_currency is not None:
-            df["currency"] = extracted_currency
+        # Merge extracted currency with any existing top‑level column.
+        if extracted_currency is not None:
+            if "currency" in df.columns:
+                # Preserve existing values, fill missing ones from extracted data.
+                df["currency"] = df["currency"].fillna(extracted_currency)
+            else:
+                df["currency"] = extracted_currency
 
         # Clean the numeric amount to ensure a float.
         df["amount"] = df["amount"].apply(_clean_amount)
