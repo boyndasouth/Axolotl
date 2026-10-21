@@ -64,6 +64,26 @@ def _clean_amount(value):
     return None
 
 
+def _extract_amount_and_currency(series: pd.Series) -> tuple[pd.Series, pd.Series | None]:
+    """
+    Given a Series that may contain either a plain numeric value or a dict
+    ``{'value': ..., 'currency': ...}``, return a tuple of (amount_series,
+    currency_series_or_None). The original series is left untouched.
+    """
+    # Extract numeric amount.
+    amount_series = series.apply(
+        lambda v: v["value"] if isinstance(v, dict) and "value" in v else v
+    )
+    # Extract currency only if the original entries were dicts.
+    if series.apply(lambda v: isinstance(v, dict)).any():
+        currency_series = series.apply(
+            lambda v: v["currency"] if isinstance(v, dict) and "currency" in v else None
+        )
+    else:
+        currency_series = None
+    return amount_series, currency_series
+
+
 def transform_orders(raw_records: list[dict], mappings: dict) -> pd.DataFrame:
     """
     Convert a list of raw order dictionaries into a clean DataFrame that
@@ -75,10 +95,12 @@ def transform_orders(raw_records: list[dict], mappings: dict) -> pd.DataFrame:
        additional renames that are safe for all rows).
     3. Applies the flexible ``customer_id`` handling to support both old and new
        upstream field names.
-    4. Deduplicates rows by ``order_id`` (keeping the first occurrence) to satisfy
+    4. Normalises the ``amount`` field, handling the new nested‑dict format and
+       extracting ``currency`` when it is missing.
+    5. Deduplicates rows by ``order_id`` (keeping the first occurrence) to satisfy
        the uniqueness contract.
-    5. Normalises the ``order_date`` format.
-    6. Re‑orders columns to match ``OUTPUT_COLUMNS``.
+    6. Normalises the ``order_date`` format.
+    7. Re‑orders columns to match ``OUTPUT_COLUMNS``.
     """
     # 1. Load raw data into a DataFrame.
     df = pd.DataFrame(raw_records)
@@ -99,10 +121,27 @@ def transform_orders(raw_records: list[dict], mappings: dict) -> pd.DataFrame:
     # 3. Populate the canonical ``customer_id`` column.
     df = _apply_customer_id(df)
 
-    # 4. Clean the ``amount`` column to ensure it is a float, handling
-    #    currency symbols and commas introduced by the new upstream format.
+    # 4. Normalise ``amount`` and ``currency``.
     if "amount" in df.columns:
+        # Preserve the original series for extraction.
+        original_amount = df["amount"]
+
+        # Extract numeric amount (handles both dict and plain values).
+        df["amount"], extracted_currency = _extract_amount_and_currency(original_amount)
+
+        # If the upstream removed the top‑level ``currency`` column, fill it from
+        # the extracted values (but do not overwrite an existing column).
+        if "currency" not in df.columns and extracted_currency is not None:
+            df["currency"] = extracted_currency
+
+        # Clean the numeric amount to ensure a float.
         df["amount"] = df["amount"].apply(_clean_amount)
+
+    # Drop rows that cannot satisfy the contract (missing amount or currency).
+    required_for_contract = ["amount", "currency"]
+    for col in required_for_contract:
+        if col in df.columns:
+            df = df.dropna(subset=[col])
 
     # 5. Deduplicate by order_id, keeping the first occurrence.
     if "order_id" in df.columns:
@@ -112,7 +151,10 @@ def transform_orders(raw_records: list[dict], mappings: dict) -> pd.DataFrame:
     date_fmt = mappings.get("orders", {}).get("date_format", "%Y-%m-%d")
     # Ensure the column exists before attempting conversion.
     if "order_date" in df.columns:
-        df["order_date"] = pd.to_datetime(df["order_date"], errors="coerce").dt.strftime(date_fmt)
+        df["order_date"] = (
+            pd.to_datetime(df["order_date"], errors="coerce")
+            .dt.strftime(date_fmt)
+        )
 
     # 7. Re‑order columns to the expected output order.
     # Any missing columns will raise a KeyError, which is appropriate because
