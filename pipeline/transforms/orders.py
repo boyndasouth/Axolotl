@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import re
+
 import pandas as pd
 
 # The order of columns expected in the final clean table.
@@ -13,6 +15,7 @@ OUTPUT_COLUMNS = [
     "order_date",
     "status",
 ]
+
 
 def _apply_customer_id(df: pd.DataFrame) -> pd.DataFrame:
     """
@@ -40,6 +43,25 @@ def _apply_customer_id(df: pd.DataFrame) -> pd.DataFrame:
         df = df.drop(columns=cols_to_drop)
 
     return df
+
+
+def _clean_amount(value):
+    """
+    Convert amount values that may be strings with currency symbols and commas
+    into a float. Numeric inputs are returned unchanged as float.
+    """
+    if isinstance(value, (int, float)):
+        return float(value)
+    if isinstance(value, str):
+        # Remove commas.
+        no_commas = value.replace(",", "")
+        # Strip any character that is not a digit, dot, or minus sign.
+        cleaned = re.sub(r"[^\d.\-]", "", no_commas)
+        try:
+            return float(cleaned)
+        except ValueError:
+            return None
+    return None
 
 
 def transform_orders(raw_records: list[dict], mappings: dict) -> pd.DataFrame:
@@ -77,17 +99,22 @@ def transform_orders(raw_records: list[dict], mappings: dict) -> pd.DataFrame:
     # 3. Populate the canonical ``customer_id`` column.
     df = _apply_customer_id(df)
 
-    # 4. Deduplicate by order_id, keeping the first occurrence.
+    # 4. Clean the ``amount`` column to ensure it is a float, handling
+    #    currency symbols and commas introduced by the new upstream format.
+    if "amount" in df.columns:
+        df["amount"] = df["amount"].apply(_clean_amount)
+
+    # 5. Deduplicate by order_id, keeping the first occurrence.
     if "order_id" in df.columns:
         df = df.drop_duplicates(subset=["order_id"], keep="first")
 
-    # 5. Normalise the order_date format using the configured date format.
+    # 6. Normalise the order_date format using the configured date format.
     date_fmt = mappings.get("orders", {}).get("date_format", "%Y-%m-%d")
     # Ensure the column exists before attempting conversion.
     if "order_date" in df.columns:
         df["order_date"] = pd.to_datetime(df["order_date"], errors="coerce").dt.strftime(date_fmt)
 
-    # 6. Re‑order columns to the expected output order.
+    # 7. Re‑order columns to the expected output order.
     # Any missing columns will raise a KeyError, which is appropriate because
     # they represent a contract violation.
     df = df[OUTPUT_COLUMNS]
