@@ -77,7 +77,6 @@ class PipelineState(TypedDict, total=False):
     # stage outputs
     run_report: dict
     incident_batch: Optional[str]       # raw snapshot of the batch that broke
-    live_sample: Optional[str]          # dir with raw.json + expected.json from real clean traffic
     anomaly: Optional[Anomaly]
     diagnosis: Optional[Diagnosis]
     patch: Optional[Patch]
@@ -91,6 +90,7 @@ class PipelineState(TypedDict, total=False):
     # outcome
     status: Status
     pr_url: Optional[str]
+    pr_error: Optional[str]          # set when GitHub failed and the PR was written locally instead
     escalation_reason: Optional[str]
     rollout: Optional[dict]             # streaming only: patch applied, DLQ replay, live check
 

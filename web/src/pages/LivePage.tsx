@@ -24,15 +24,13 @@ function activityText(e: StoredEvent): string | null {
     }
     case "replay_done": return `Replayed ${fmtInt(d.replayed)} quarantined records: ${fmtInt(d.loaded)} loaded, ${fmtInt(d.filtered)} dropped by the fix, ${fmtInt(d.still_failing)} still failing`;
     case "producer_rate": return `Upstream rate set to ${d.rate}/s`;
-    case "sink_unavailable": return `Warehouse unreachable, holding the stream: ${d.error}`;
-    case "sink_recovered": return `Warehouse back after ${d.down_s} s`;
     case "runtime_started": return `Pipeline started on ${d.bus}`;
     case "detector_error": return `Detector error: ${d.error}`;
     default: return null;
   }
 }
 
-function CurrentIncident({ rows, waiting, prMode, demo = true }: { rows: IncidentRow[]; waiting: number; prMode?: string; demo?: boolean }) {
+function CurrentIncident({ rows, waiting, prMode }: { rows: IncidentRow[]; waiting: number; prMode?: string }) {
   const now = Date.now() / 1000;
   const current = rows.find((r) => !TERMINAL.has(r.status)) ?? rows.find((r) => now - r.updated_at < 120);
   const { data: inc } = useQuery({
@@ -44,8 +42,7 @@ function CurrentIncident({ rows, waiting, prMode, demo = true }: { rows: Inciden
       <Panel>
         <p className="font-cond text-[17px] font-semibold">No open incidents</p>
         <p className="mt-0.5 text-[14px] text-ink-2">
-          {demo ? "Inject a change from the list on the right and watch the agents detect it, write a fix and test it."
-            : "Watching the stream. When upstream changes and records start failing the contract, the agents take it from here."}
+          Inject a change from the list on the right and watch the agents detect it, write a fix and test it.
         </p>
       </Panel>
     );
@@ -68,6 +65,16 @@ function CurrentIncident({ rows, waiting, prMode, demo = true }: { rows: Inciden
       </div>
       {inc && <div className="mt-4"><StageTrack inc={inc} compact /></div>}
       {inc?.waiting_for_decision && <div className="mt-4"><Decision inc={inc} waiting={waiting} prMode={prMode} /></div>}
+      {inc?.status === "error" && (
+        <p className="mt-3 text-[14px] text-fault">
+          The agent crashed: {[...inc.events].reverse().find((e) => e.kind === "agent_error")?.data.error ?? "see the full incident"}
+        </p>
+      )}
+      {inc?.pr_error && (
+        <p className="mt-3 text-[14px] text-quarantine-ink">
+          Couldn't open a GitHub PR, so it was written locally instead. You can still approve it here. ({inc.pr_error})
+        </p>
+      )}
       {inc?.status === "escalated" && (
         <p className="mt-3 text-[14px] text-fault">Handed to a human: {inc.escalation_reason}</p>
       )}
@@ -84,8 +91,7 @@ export function LivePage() {
   return (
     <div className="space-y-5">
       <Schematic status={status} series={series} />
-      <CurrentIncident rows={rows} waiting={status?.dlq_depth ?? 0} prMode={status?.pr_mode}
-        demo={status?.producer.embedded !== false} />
+      <CurrentIncident rows={rows} waiting={status?.dlq_depth ?? 0} prMode={status?.pr_mode} />
 
       <div className="grid grid-cols-1 gap-5 lg:grid-cols-[minmax(0,1fr)_340px]">
         <div className="min-w-0 space-y-5">
@@ -119,8 +125,7 @@ export function LivePage() {
           </Panel>
         </div>
         <div className="space-y-5">
-          {/* breaking the upstream on purpose needs the demo producer; real topics aren't ours to break */}
-          {status?.producer.embedded !== false && <ChaosPanel status={status} />}
+          <ChaosPanel status={status} />
           <Panel title="Pipeline log">
             {activity.length === 0 ? <p className="text-[14px] text-ink-2">Quiet so far.</p> : (
               <ul className="space-y-2">

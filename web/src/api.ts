@@ -15,7 +15,6 @@ export type Status = {
   code_version: number; code_error: string | null; busy: boolean;
   pr_mode: string; uptime_s: number; last_record_age_s: number | null;
   models?: { diagnosis: string; repair: string };
-  pipeline?: string; source_topic?: string; sink?: string; live_sample_rows?: number;
 };
 
 export type Point = { t: number; produced: number; in: number; loaded: number; dlq: number; filtered: number; sink_dupes: number };
@@ -61,7 +60,7 @@ export type Incident = IncidentRow & {
     evidence: string[]; target_files: string[]; fix_plan: string;
   };
   attempts: Attempt[]; max_attempts: number;
-  pr_url: string | null; pr_body: string | null;
+  pr_url: string | null; pr_error?: string | null; pr_body: string | null;
   escalation_reason: string | null; escalation_body: string | null;
   rollout: Rollout | null;
   timestamps: Record<string, number>;

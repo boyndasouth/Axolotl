@@ -29,8 +29,11 @@ def _github(state: PipelineState, body: str) -> str:
     from github import Auth, Github
 
     repo = Repo(state["workdir"])
-    if repo.is_dirty(untracked_files=False):
-        raise RuntimeError("working tree has uncommitted changes; refusing to branch")
+    # Only the files the patch touches matter. The running stream rewrites tracked runtime files
+    # (data/schema_snapshots/orders.json), so a whole-tree dirty check fails on a healthy setup.
+    dirty = [p for p in state["patch"]["files"] if repo.is_dirty(untracked_files=False, path=p)]
+    if dirty:
+        raise RuntimeError(f"uncommitted local edits to {dirty}; refusing to branch over them")
     original = repo.active_branch.name
     branch = f"self-heal/{state['incident_id']}"
     repo.git.checkout("-b", branch)
@@ -50,8 +53,19 @@ def _github(state: PipelineState, body: str) -> str:
 
 def open_pr(state: PipelineState) -> dict:
     body = pr_body(state)
-    url = _github(state, body) if PR_MODE == "github" else _dry_run(state, body)
-    return {"pr_url": url, "status": "pr_open", "timestamps": {"pr_opened": time.time()}}
+    pr_error = None
+    if PR_MODE == "github":
+        try:
+            url = _github(state, body)
+        except Exception as e:
+            # The fix is already verified. A GitHub problem (auth, remote, repo name, network) must not
+            # strand it: write the PR locally and let the human approve it from the console instead.
+            pr_error = f"{type(e).__name__}: {e}"[:500]
+            url = _dry_run(state, f"> **Could not open a GitHub PR:** {pr_error}\n\n{body}")
+    else:
+        url = _dry_run(state, body)
+    return {"pr_url": url, "pr_error": pr_error, "status": "pr_open",
+            "timestamps": {"pr_opened": time.time()}}
 
 
 def escalate(state: PipelineState) -> dict:
