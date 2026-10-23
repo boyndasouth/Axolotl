@@ -41,7 +41,7 @@ def orders_clean(context: AssetExecutionContext) -> None:
 def orders_clean_not_empty() -> AssetCheckResult:
     con = duckdb.connect(str(WAREHOUSE), read_only=True)
     try:
-        n = con.execute("SELECT count(*) FROM orders_clean").fetchone()[0]
+        n = con.execute("SELECT count(*) FROM orders_clean").fetchall()[0][0]
     finally:
         con.close()
     return AssetCheckResult(passed=n > 0, metadata={"rows": n})

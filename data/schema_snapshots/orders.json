@@ -1,25 +1,20 @@
 {
-  "order_date": [
-    "str"
+  "amount": [
+    "float"
   ],
   "currency": [
     "str"
   ],
-  "status": [
+  "cust_id": [
+    "str"
+  ],
+  "order_date": [
     "str"
   ],
   "order_id": [
     "str"
   ],
-  "client_id": [
-    "str"
-  ],
-  "amount": [
-    "dict{currency,value}",
-    "float",
-    "str"
-  ],
-  "cust_id": [
+  "status": [
     "str"
   ]
 }

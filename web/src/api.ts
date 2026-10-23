@@ -15,6 +15,7 @@ export type Status = {
   code_version: number; code_error: string | null; busy: boolean;
   pr_mode: string; uptime_s: number; last_record_age_s: number | null;
   models?: { diagnosis: string; repair: string };
+  pipeline?: string; source_topic?: string; sink?: string; live_sample_rows?: number;
 };
 
 export type Point = { t: number; produced: number; in: number; loaded: number; dlq: number; filtered: number; sink_dupes: number };

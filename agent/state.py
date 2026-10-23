@@ -77,6 +77,7 @@ class PipelineState(TypedDict, total=False):
     # stage outputs
     run_report: dict
     incident_batch: Optional[str]       # raw snapshot of the batch that broke
+    live_sample: Optional[str]          # dir with raw.json + expected.json from real clean traffic
     anomaly: Optional[Anomaly]
     diagnosis: Optional[Diagnosis]
     patch: Optional[Patch]
