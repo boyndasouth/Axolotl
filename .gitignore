@@ -7,7 +7,6 @@ venv/
 
 # runtime state
 data/*
-!data/schema_snapshots/
 logs/
 reports/
 bench/results.duckdb*
