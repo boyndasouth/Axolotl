@@ -1,0 +1,6 @@
+# Source-to-canonical mapping for the orders feed.
+# The repair agent is allowed to edit this file and pipeline/transforms/.
+orders:
+  rename:
+    cust_id: customer_id
+  date_format: "%Y-%m-%d"
