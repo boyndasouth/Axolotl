@@ -104,6 +104,8 @@ class DuckDBSink(Sink):
 
     def count(self):
         with self._lock:
+            # fetchall, not fetchone: DuckDB 2.x refuses new work on a connection until the
+            # previous result is fully consumed, and this connection is long-lived.
             return int(self._con.execute(f"SELECT count(*) FROM {_duck_ident(self.table)}").fetchall()[0][0])
 
     def recent(self, n=20):
