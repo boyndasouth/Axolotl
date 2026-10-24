@@ -1,21 +1,22 @@
 {
-  "client_id": [
+  "cust_id": [
     "str"
   ],
-  "status": [
+  "client_id": [
     "str"
   ],
   "currency": [
     "str"
   ],
-  "cust_id": [
+  "amount": [
+    "float",
     "str"
   ],
   "order_date": [
     "str"
   ],
-  "amount": [
-    "float"
+  "status": [
+    "str"
   ],
   "order_id": [
     "str"
