@@ -1,0 +1,20 @@
+{
+  "amount": [
+    "float"
+  ],
+  "currency": [
+    "str"
+  ],
+  "cust_id": [
+    "str"
+  ],
+  "order_date": [
+    "str"
+  ],
+  "order_id": [
+    "str"
+  ],
+  "status": [
+    "str"
+  ]
+}
