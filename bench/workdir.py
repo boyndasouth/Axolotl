@@ -22,6 +22,12 @@ def make_workdir(dst: Path, repo_root: Path = REPO_ROOT, git: bool = True) -> Pa
     snap = repo_root / "data" / "schema_snapshots"
     if snap.exists():
         shutil.copytree(snap, dst / "data" / "schema_snapshots")
+    # The live checkout drifts: merged self-heal PRs change the transform and running
+    # the app rewrites the schema snapshot. Tests and the benchmark need the original,
+    # unhealed pipeline every time, so overlay the frozen copy in chaos/baseline.
+    baseline = repo_root / "chaos" / "baseline"
+    if baseline.exists():
+        shutil.copytree(baseline, dst, ignore=_IGNORE, dirs_exist_ok=True)
     if git:
         # a one-commit history, so the diagnosis agent's git tool has something to read
         cmds = [["git", "init", "-q"], ["git", "add", "pipeline", "tests"],
