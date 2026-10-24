@@ -96,7 +96,13 @@ def transform_orders(raw_records: List[Mapping[str, Any]], mappings: Mapping[str
     df["order_date"] = pd.to_datetime(df["order_date"], errors="coerce").dt.strftime(date_fmt)
 
     # ------------------------------------------------------------------
-    # 4. Re‑order columns to match the contract exactly.
+    # 4. Status normalisation (handle upstream uppercase values)
+    # ------------------------------------------------------------------
+    if "status" in df.columns:
+        df["status"] = df["status"].astype(str).str.lower()
+
+    # ------------------------------------------------------------------
+    # 5. Re‑order columns to match the contract exactly.
     # ------------------------------------------------------------------
     df = df[OUTPUT_COLUMNS]
 
