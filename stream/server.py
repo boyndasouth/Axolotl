@@ -130,7 +130,8 @@ async def lifespan(app: FastAPI):
 
     def build():
         return Runtime(workdir=Path(os.environ.get("SHP_WORKDIR") or REPO_ROOT), publish=hub.publish,
-                       embedded_producer=os.environ.get("SHP_EMBEDDED_PRODUCER", "1") != "0",
+                       embedded_producer=(os.environ["SHP_EMBEDDED_PRODUCER"] != "0")
+                       if os.environ.get("SHP_EMBEDDED_PRODUCER") else None,
                        rate=float(os.environ.get("SHP_RATE", "25")),
                        sandbox_backend=os.environ.get("SHP_SANDBOX_BACKEND") or None).start()
 
