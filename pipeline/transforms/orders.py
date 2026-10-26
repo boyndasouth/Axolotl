@@ -13,7 +13,7 @@ module now:
 from __future__ import annotations
 
 import re
-from typing import Any, List, Mapping
+from typing import Any, List, Mapping, Tuple
 
 import pandas as pd
 
@@ -48,6 +48,17 @@ def _parse_amount(value: Any) -> float | None:
         except ValueError:
             return None
     return None
+
+
+def _extract_amount_and_currency(
+    raw_amount: Any,
+) -> Tuple[Any, Any]:
+    """If ``raw_amount`` is a dict with ``value``/``currency`` keys,
+    return (value, currency). Otherwise return (raw_amount, None).
+    """
+    if isinstance(raw_amount, dict):
+        return raw_amount.get("value"), raw_amount.get("currency")
+    return raw_amount, None
 
 
 def transform_orders(raw_records: List[Mapping[str, Any]], mappings: Mapping[str, Any]) -> pd.DataFrame:
@@ -85,8 +96,21 @@ def transform_orders(raw_records: List[Mapping[str, Any]], mappings: Mapping[str
             df = df.drop(columns=col)
 
     # ------------------------------------------------------------------
-    # 2. Amount normalisation
+    # 2. Amount normalisation – handle dict payloads and currency extraction
     # ------------------------------------------------------------------
+    if "amount" in df.columns:
+        # Split dict amount into value + possible currency
+        extracted = df["amount"].apply(_extract_amount_and_currency)
+        # extracted is a Series of (value, currency) tuples
+        df["amount"] = extracted.apply(lambda tup: tup[0])
+        # Ensure a currency column exists; fill from extracted where missing
+        if "currency" not in df.columns:
+            df["currency"] = extracted.apply(lambda tup: tup[1])
+        else:
+            # Preserve existing currency values, fill NaNs with extracted ones
+            df["currency"] = df["currency"].fillna(extracted.apply(lambda tup: tup[1]))
+
+    # Apply numeric parsing to the (now‑flattened) amount column
     df["amount"] = df["amount"].apply(_parse_amount)
 
     # ------------------------------------------------------------------
