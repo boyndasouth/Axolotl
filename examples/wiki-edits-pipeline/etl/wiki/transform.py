@@ -42,12 +42,15 @@ def transform(records: list[dict], mappings: dict) -> pd.DataFrame:
     rows = []
     for raw in records:
         r = {rename.get(k, k): v for k, v in raw.items()}
+        title = r.get("title")
+        if title is None or pd.isna(title) or str(title).strip() == "":
+            continue
         rows.append({
             "event_id": str(r["event_id"]),
             "wiki": r["wiki"],
             "change_type": r["type"],
             "namespace": int(r["namespace"]),
-            "title": r["title"],
+            "title": str(title),
             "user": r["user"],
             "is_bot": bool(r.get("bot", False)),
             "size_delta": _size_delta(r["type"], r.get("length")),
