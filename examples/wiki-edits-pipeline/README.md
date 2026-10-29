@@ -69,8 +69,9 @@ cd <healer project>
 python -m stream.server       # console on http://localhost:8100
 ```
 
-The console now says "Wiki edits pipeline", shows the Postgres table under Warehouse, and has
-no "Break the upstream" panel: real topics aren't the console's to break.
+The console now says "Wiki edits pipeline" and shows the Postgres table under Warehouse. Its
+"Break the upstream" panel lists this pipeline's six drifts: the pipeline ships its own drift
+switch (`producer/drifts.py`), so the console can flip it, and the producer in step 5 applies it.
 
 ### 5. Terminal 3: the live feed
 
@@ -94,6 +95,9 @@ python producer\drift.py list
 python producer\drift.py timestamp_ms
 ```
 
+Or pick the drift in the console's "Break the upstream" panel; it flips the same switch.
+Either way, the producer from step 5 has to be running for anything to change.
+
 Within a few seconds the quarantine fills and an incident opens. The agents diagnose it, write
 a fix, prove it in the sandbox against your real recent traffic, and open a PR (in dry-run mode
 it's written to the healer project's `reports/prs/`). Approve it in the console and watch the
@@ -106,6 +110,18 @@ python producer\drift.py off
 git reset --hard baseline     # back to the original code (the healer hot-reloads it)
 ```
 
+**Running it in place instead?** If you skipped step 1 and pointed `SHP_WORKDIR` at
+`examples\wiki-edits-pipeline` inside the healer project, there is no separate repo here, and
+`git reset --hard baseline` would reset the **whole healer project**. Restore only this
+pipeline's editable files from the healer repo's `baseline` tag:
+
+```powershell
+python producer\drift.py off
+git checkout baseline -- etl/wiki     # run from this folder; only the transform and mappings
+```
+
+If a heal was merged on GitHub and pulled, commit that restore so the next PR branches from it.
+
 ## The six drifts
 
 | Scenario | What upstream does | What the healer should do |
@@ -114,8 +130,14 @@ git reset --hard baseline     # back to the original code (the healer hot-reload
 | `timestamp_ms` | Unix seconds become milliseconds | repair |
 | `timestamp_iso` | `timestamp` becomes an ISO 8601 string | repair |
 | `length_flattened` | `length: {old, new}` becomes `length_old` / `length_new` | repair |
-| `missing_titles` | about 5% of events arrive without a title | repair: drop rows that can't be fixed; the rest keep loading |
+| `missing_titles` | about 5% of events arrive without a title | repair: drop rows that can't be fixed; the rest keep loading (category `bad_rows`, not an escalation) |
 | `bot_as_string` | `bot` becomes the strings `"true"` / `"false"` | **nothing**: every value still passes the contract |
+
+`missing_titles` tests judgement more than code. No fix can bring a missing title back, so a
+diagnosis that reasons record by record calls it unrepairable and hands it to a human. The
+right call is to look at the rate: a few percent of unusable records is bad rows, and the fix
+drops them. The verifier refuses a fix that drops more than 20% of the batch that broke, so
+a much heavier version of this drift would still be escalated.
 
 `bot_as_string` is there on purpose. `bool("false")` is `True` in Python, so every human edit
 silently becomes a bot edit, and no contract check or regression test catches it. It's the
@@ -132,7 +154,9 @@ Two more things to try:
 
 Create a GitHub repo for this pipeline, push to it (`git remote add origin ...; git push -u origin main`),
 and set `GITHUB_TOKEN` and `GITHUB_REPO=<you>/wiki-edits-pipeline` in the healer's `.env`. PRs then open
-against this repo, not the healer's.
+against this repo, not the healer's. If GitHub fails (bad token, wrong repo name, no remote),
+the PR is written to the healer's `reports/prs/` instead, the console shows why, and you can
+still approve the fix from there.
 
 ## Offline and repeatable runs
 

@@ -31,7 +31,7 @@ flowchart LR
 - **Real traffic is the regression suite.** Clean micro-batches feed a live sample: real records and the rows the current code made from them. A fix must reproduce every one, so a patch that passes the tests but quietly changes rows that were already right never reaches a PR.
 - **Works on your pipeline, not just the demo.** Everything about the pipeline (topics, transform, contract, key, editable files, sink) comes from `healer.yaml`. DuckDB and Postgres sinks are built in.
 - **Zero data loss, and proof of it.** After a merge the processor hot-reloads the code, replays the quarantine through it, and watches the live stream for a few seconds. The incident is only "resolved" when nothing related is still failing. The sink upserts on `order_id`, so replays and upstream resends never double-load.
-- **It knows when not to fix.** Upstream going silent is an outage, so it escalates. A new harmless field isn't an incident at all. Both are scored.
+- **It knows when not to fix, and when a fix is just dropping rows.** Upstream going silent is an outage, so it escalates. A new harmless field isn't an incident at all. A few records missing a required value can't be repaired one by one, but that isn't a reason to page a human: the fix drops them so the rest keep loading. The verifier refuses a fix that drops more than 20% of the batch that broke. All of these are scored.
 - **Measured, including the bad case.** A hidden test set, never shown to the sandbox, catches patches that pass verification but don't generalize. That's the false-fix rate.
 
 ## Quick start
@@ -61,14 +61,16 @@ python -m stream.server
 
 The console is prebuilt in `web/dist`, so you don't need Node to run it. To change it: `cd web && npm install && npm run dev` serves it on :5173 with live reload, talking to the server on :8100; `npm run build` updates `web/dist`.
 
-Run the tests with `python -m pytest`: about 60 tests, a couple of minutes. They cover the batch agent, the streaming pipeline, the Kafka code path (against librdkafka's built-in mock broker), the control-plane API, `healer.yaml` and its safety rules, and the whole live loop on a second, non-demo pipeline. Set `SHP_TEST_POSTGRES_DSN=postgresql://...` to run the Postgres sink tests too (CI does).
+Run the tests with `python -m pytest`: about 65 tests, a couple of minutes. They cover the batch agent, the streaming pipeline, the Kafka code path (against librdkafka's built-in mock broker), the control-plane API, `healer.yaml` and its safety rules, PR fallback, the whole live loop on a second, non-demo pipeline, and the expected repair for the Wikipedia example's `missing_titles` drift. Set `SHP_TEST_POSTGRES_DSN=postgresql://...` to run the Postgres sink tests too (CI does).
+
+Merged self-heal PRs change `pipeline/`, and the running app rewrites `data/schema_snapshots/`. Tests and the benchmark always start from the original, unhealed pipeline anyway: every throwaway working copy is overlaid with the frozen copy in `chaos/baseline/`. Don't let the agent edit that directory, and don't update it when you merge a heal. The Wikipedia example's test keeps its own frozen transform in `tests/healer/wiki_baseline/` for the same reason.
 
 ## How the live loop works
 
 1. **Upstream** (`stream/producer.py`) publishes a page of orders about once a second to the `orders` topic. The drift switch is checked before every page, so an injected change starts mid-stream, like a real upstream deploy.
 2. **The processor** (`stream/processor.py`) consumes micro-batches and runs the same transform and contract as the batch pipeline. Valid rows are upserted into DuckDB; invalid ones go to `orders.dlq` with their failure reason. Offsets are committed after the sink write and the DLQ publish, so delivery is at-least-once and the upsert makes it effectively exactly-once.
 3. **The detector** (`stream/detector.py`) checks the rolling window every half second. When it fires, it snapshots the most recent raw records (old and new shapes mixed, exactly as they arrived) and builds the same run report the batch pipeline produces. The diagnosis and repair agents work unchanged.
-4. **The agents** (`agent/`, LangGraph) diagnose, repair and verify in the sandbox, retrying with the verifier's feedback, then open a PR (or write it to `reports/prs/` in dry-run mode) and pause for a human.
+4. **The agents** (`agent/`, LangGraph) diagnose, repair and verify in the sandbox, retrying with the verifier's feedback, then open a PR (or write it to `reports/prs/` in dry-run mode) and pause for a human. If GitHub fails (auth, remote, network), the verified fix isn't lost: the PR is written locally instead and the console says why.
 5. **The decision** comes from the console's *Approve and deploy* button, or from GitHub when the PR is merged (the server's `/github` webhook route).
 6. **Rollout** (`agent/nodes/rollout.py` plus the runtime's hook): the patch is applied (in dry-run mode, committed to your local repo; in GitHub mode, `git pull`), the processor hot-reloads it, the DLQ is replayed, and the live stream is watched for a few seconds. Only then is the incident resolved.
 
@@ -98,6 +100,8 @@ SHP_WORKDIR=/path/to/your/repo SHP_BUS=kafka python -m stream.server
 ```
 
 **A worked example on live data:** `examples/wiki-edits-pipeline/` heals a pipeline that ingests real Wikipedia edits from Wikimedia's public stream into Postgres, with a producer that can break the real feed in six realistic ways. Its README walks through it step by step.
+
+**Breaking your own upstream from the console.** By default the console's *Break the upstream* panel only appears with the demo producer, because a real topic isn't the console's to break. A pipeline can opt in by shipping a drift switch at `producer/drifts.py` with `SCENARIOS` (id to a description and the expected outcome), `current()` and `set_drift(name)`. The console then lists those scenarios and flips the switch, and the pipeline's own producer applies it. The Wikipedia example does this.
 
 Two things the healer is careful about on real data. The built-in fake upstream only runs when `source.demo_producer: true`, so nothing fake is ever published to your topic. And if the warehouse goes away, the processor waits and retries instead of moving past rows it couldn't write; offsets are committed only once the rows have landed.
 
@@ -151,6 +155,8 @@ Everything is an environment variable; `.env.example` lists them all. The ones y
 
 Set `GITHUB_TOKEN` (fine-grained: contents and pull requests, read and write) and `GITHUB_REPO=owner/name` in `.env`. The agent branches as `self-heal/<incident>`, commits only the verified patch, pushes, and opens the PR. CI (`.github/workflows/ci.yml`) then re-runs every test on it, outside anything the agent controls.
 
+The agent refuses to branch only if you have uncommitted edits to the files the patch touches. Other local changes don't block it, including the schema snapshot the running stream rewrites. Finish any merge in progress first, though. If anything on the GitHub side fails, the PR is written to `reports/prs/` instead, the console shows the error, and you can still approve the fix there.
+
 To deploy on merge, add a GitHub webhook for "Pull requests" pointing at `http://<your tunnel>/github` (ngrok or smee.io in front of port 8100), with `GITHUB_WEBHOOK_SECRET` as the secret. The *Approve and deploy* button still works too.
 
 ## Batch mode
@@ -178,7 +184,8 @@ pipeline/        the demo pipeline being healed: transforms (editable), mappings
 agent/           LangGraph graph and state, nodes (monitor, diagnose, repair, verify, PR,
                  rollout), prompts, context tools, LiteLLM wrapper, CLI, GitHub webhook
 sandbox/         Docker image, runner (decides pass/fail), in-sandbox evaluator
-chaos/           scenarios, drift functions, the shared drift switch, injector, fixtures
+chaos/           scenarios, drift functions, the shared drift switch, injector, fixtures, and
+                 baseline/: the frozen, unhealed demo pipeline that tests and benchmarks start from
 bench/           streaming and batch harnesses, oracle, throwaway working copies
 upstream_api/    fake HTTP source for batch mode
 dashboard/       Streamlit benchmark dashboard

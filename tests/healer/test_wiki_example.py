@@ -29,7 +29,9 @@ def test_wiki_example_own_tests():
     assert r.returncode == 0, r.stdout[-2000:] + r.stderr[-1000:]
 
 
-TRANSFORM = (WIKI / "etl" / "wiki" / "transform.py").read_text(encoding="utf-8")
+# The original, unhealed transform. The example's own copy changes as heals are merged,
+# so this test keeps a frozen one (like chaos/baseline does for the demo).
+TRANSFORM = (Path(__file__).parent / "wiki_baseline" / "transform.py").read_text(encoding="utf-8")
 # the repair missing_titles calls for: a record with no title can't be fixed, so drop it
 DROPS_UNTITLED = TRANSFORM.replace(
     "        r = {rename.get(k, k): v for k, v in raw.items()}\n",
