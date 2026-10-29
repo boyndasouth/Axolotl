@@ -9,7 +9,11 @@ Work out the root cause. Decide whether it can be fixed by changing the pipeline
 
 The contract in {{CONTRACT}} is fixed. A fix must make the data meet the contract, never loosen it.
 
-Mark the incident NOT repairable when no code change can produce correct data. Examples: the upstream returned nothing or too few rows (an outage), the upstream is unreachable, or the information needed for a required column is absent from the data entirely.
+Mark the incident NOT repairable when no code change can produce correct data. Examples: the upstream returned nothing or too few rows (an outage), the upstream is unreachable, or the information needed for a required column is absent from all or nearly all records.
+
+When only a minority of records are unusable (a required value is null, empty or out of range in a few of them) and the rest are fine, it IS repairable, category bad_rows: the fix drops those records in the transform so the rest keep loading. Judge this from the run report (quarantined vs rows_in), not from the sample records alone.
+
+The schema diff compares a known-good batch with the records that broke. A small quarantined sample can lack optional fields that only some records carry; such "removed" fields are not a cause unless the failing checks point at them.
 
 Be specific in the evidence: quote field names, example values, error messages and commit SHAs you relied on.
 
@@ -19,7 +23,7 @@ Reply with a single JSON object and nothing else:
   "root_cause": "what changed and why the pipeline broke, 2-4 sentences",
   "category": "upstream_schema_change | upstream_type_change | bad_rows | code_regression | upstream_outage | unknown",
   "repairable": true,
-  "confidence": 0.0,
+  "confidence": "number from 0 to 1: how sure you are of this root cause",
   "evidence": ["...", "..."],
   "target_files": ["{{EXAMPLE_FILE}}"],
   "fix_plan": "what the repair should change, 1-2 sentences"
