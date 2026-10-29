@@ -7,12 +7,20 @@ import { Panel } from "./bits";
 const ORDER = { repair: 0, escalate: 1, no_incident: 2 } as const;
 
 // Make upstream misbehave on purpose. One scenario at a time, starting mid-stream.
+// Works on the demo producer, and on any pipeline that ships its own drift switch.
 export function ChaosPanel({ status }: { status: Status | null }) {
   const qc = useQueryClient();
-  const { data } = useQuery({ queryKey: ["chaos"], queryFn: api.chaos });
+  // the pipeline's switch can also be flipped from its CLI (producer/drift.py), so poll it
+  const { data } = useQuery({
+    queryKey: ["chaos"], queryFn: api.chaos,
+    refetchInterval: (q) => (q.state.data?.mode === "pipeline" ? 3000 : false),
+  });
   const [pending, setPending] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
-  const active = status?.drift.scenario ?? data?.active.scenario ?? null;
+  const pipeline = data?.mode === "pipeline";
+  // the runtime's status only knows the demo producer's drift; the pipeline's lives in its own switch
+  const active = pipeline ? data?.active.scenario ?? null
+    : status?.drift.scenario ?? data?.active.scenario ?? null;
   const [rate, setRate] = useState<number>(status?.producer.rate ?? 25);
 
   useEffect(() => { if (status?.producer.rate) setRate(status.producer.rate); }, [status?.producer.rate]);
@@ -30,6 +38,9 @@ export function ChaosPanel({ status }: { status: Status | null }) {
     }
   }
 
+  // a real topic with no drift switch isn't ours to break
+  if (!data || data.mode === "none" || data.scenarios.length === 0) return null;
+
   return (
     <Panel title="Break the upstream"
            actions={active ? (
@@ -38,10 +49,12 @@ export function ChaosPanel({ status }: { status: Status | null }) {
                Back to normal
              </button>) : null}>
       <p className="mb-3 text-[13.5px] text-ink-2">
-        Pick a change and upstream starts sending it with the next page of orders.
+        {pipeline
+          ? "Pick a change and the pipeline's producer applies it to live records within a second. It has to be running for anything to change."
+          : "Pick a change and upstream starts sending it with the next page of orders."}
       </p>
       <ul className="divide-y divide-line">
-        {[...(data?.scenarios ?? [])].sort((a, b) => ORDER[a.expected_outcome] - ORDER[b.expected_outcome]).map((s) => {
+        {[...data.scenarios].sort((a, b) => ORDER[a.expected_outcome] - ORDER[b.expected_outcome]).map((s) => {
           const on = active === s.id;
           return (
             <li key={s.id} className="flex items-center gap-3 py-2">

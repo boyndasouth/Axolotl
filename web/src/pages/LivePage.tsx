@@ -78,6 +78,9 @@ function CurrentIncident({ rows, waiting, prMode, demo = true }: { rows: Inciden
 export function LivePage() {
   const { status, series, events } = useLive();
   const { data: rows = [] } = useQuery({ queryKey: ["incidents"], queryFn: api.incidents, refetchInterval: 15000 });
+  // shares ChaosPanel's cache: "demo" (fake upstream), "pipeline" (its own drift switch) or "none"
+  const { data: chaos } = useQuery({ queryKey: ["chaos"], queryFn: api.chaos });
+  const canBreak = !!chaos && chaos.mode !== "none" && chaos.scenarios.length > 0;
   const activity = events.filter((e) => !e.incident_id).map((e) => ({ e, text: activityText(e) }))
     .filter((x) => x.text).slice(-12).reverse();
 
@@ -85,7 +88,7 @@ export function LivePage() {
     <div className="space-y-5">
       <Schematic status={status} series={series} />
       <CurrentIncident rows={rows} waiting={status?.dlq_depth ?? 0} prMode={status?.pr_mode}
-        demo={status?.producer.embedded !== false} />
+        demo={canBreak} />
 
       <div className="grid grid-cols-1 gap-5 lg:grid-cols-[minmax(0,1fr)_340px]">
         <div className="min-w-0 space-y-5">
@@ -119,8 +122,9 @@ export function LivePage() {
           </Panel>
         </div>
         <div className="space-y-5">
-          {/* breaking the upstream on purpose needs the demo producer; real topics aren't ours to break */}
-          {status?.producer.embedded !== false && <ChaosPanel status={status} />}
+          {/* breaking the upstream needs the demo producer or the pipeline's own drift switch;
+              a real topic with neither isn't ours to break */}
+          {canBreak && <ChaosPanel status={status} />}
           <Panel title="Pipeline log">
             {activity.length === 0 ? <p className="text-[14px] text-ink-2">Quiet so far.</p> : (
               <ul className="space-y-2">

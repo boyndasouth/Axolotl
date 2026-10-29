@@ -71,6 +71,11 @@ export type Incident = IncidentRow & {
 
 export type Scenario = { id: string; description: string; expected_outcome: "repair" | "escalate" | "no_incident" };
 
+// demo: the built-in fake upstream. pipeline: the pipeline ships its own drift switch
+// (producer/drifts.py) and its producer applies it. none: a real topic with nothing to break.
+export type ChaosMode = "demo" | "pipeline" | "none";
+export type Chaos = { mode: ChaosMode; active: Status["drift"]; scenarios: Scenario[] };
+
 async function call<T>(path: string, init?: RequestInit): Promise<T> {
   const res = await fetch(path, {
     ...init,
@@ -90,7 +95,7 @@ export const api = {
   incidents: () => call<IncidentRow[]>("/api/incidents"),
   incident: (id: string) => call<Incident>(`/api/incidents/${id}`),
   events: (after = 0) => call<StoredEvent[]>(`/api/events?after=${after}&limit=200`),
-  chaos: () => call<{ active: Status["drift"]; scenarios: Scenario[] }>("/api/chaos"),
+  chaos: () => call<Chaos>("/api/chaos"),
   inject: (scenario: string) => call("/api/chaos", { method: "POST", body: JSON.stringify({ scenario }) }),
   clearChaos: () => call("/api/chaos", { method: "DELETE" }),
   decide: (id: string, merged: boolean) =>

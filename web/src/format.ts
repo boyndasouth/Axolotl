@@ -36,6 +36,13 @@ export const SCENARIO_NAMES: Record<string, string> = {
   duplicate_rows: "Rows resent",
   upstream_outage: "Upstream goes silent",
   additive_field: "Harmless new field",
+  // examples/wiki-edits-pipeline/producer/drifts.py
+  rename_user: "User field renamed",
+  timestamp_ms: "Timestamps switch to milliseconds",
+  timestamp_iso: "Timestamps become text dates",
+  length_flattened: "Length split into two fields",
+  missing_titles: "Some titles missing",
+  bot_as_string: "Bot flag sent as text",
 };
 export const scenarioName = (id: string | null | undefined) => (id ? SCENARIO_NAMES[id] ?? id : "");
 

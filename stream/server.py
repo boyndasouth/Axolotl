@@ -13,7 +13,7 @@ GET  /api/stream                  SSE: "metrics" every second, "event" for every
 GET  /api/incidents               list
 GET  /api/incidents/{id}          full story: anomaly, diagnosis, attempts, PR, rollout, events
 POST /api/incidents/{id}/decision {"merged": true|false}
-GET  /api/chaos                   scenarios and the active one
+GET  /api/chaos                   scenarios and the active one ("mode": demo | pipeline | none)
 POST /api/chaos                   {"scenario": "rename_column"}   DELETE /api/chaos to clear
 POST /api/producer                {"rate": 40}
 POST /api/replay                  replay the DLQ through the current code
@@ -219,14 +219,60 @@ async def incident(incident_id: str):
     })
 
 
+def _external_drifts():
+    """The pipeline's own drift switch (<workdir>/producer/drifts.py), when it ships one.
+
+    With no embedded producer the healer doesn't own the upstream, so the console can't
+    break it. A pipeline that *does* ship a drift switch (like examples/wiki-edits-pipeline)
+    opts in: the console flips that switch, and the pipeline's own producer applies it.
+    Returns the module, or None for the demo producer / a pipeline without a switch."""
+    r = rt()
+    if r.producer is not None:
+        return None
+    path = Path(r.workdir) / "producer" / "drifts.py"
+    if not path.is_file():
+        return None
+    import importlib.util
+    spec = importlib.util.spec_from_file_location("_pipeline_drifts", path)
+    mod = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(mod)
+    if not all(hasattr(mod, n) for n in ("SCENARIOS", "current", "set_drift")):
+        return None
+    return mod
+
+
+def _expected(text: str) -> str:
+    # drifts.py describes the outcome in words; the console wants one of three buckets
+    t = text.lower()
+    if t.startswith("repair"):
+        return "repair"
+    if t.startswith("escalate"):
+        return "escalate"
+    return "no_incident"
+
+
+def _set_external_drift(mod, scenario: str | None) -> dict:
+    mod.set_drift(scenario)
+    what = mod.SCENARIOS[scenario][0] if scenario else None
+    rt().emit(None, "drift_changed", {"scenario": scenario, "description": what, "source": "pipeline"})
+    return {"scenario": scenario, "since": time.time()}
+
+
 @app.get("/api/chaos")
 async def chaos():
+    ext = _external_drifts()
+    if ext is not None:
+        return {"mode": "pipeline", "active": {"scenario": ext.current(), "since": None},
+                "scenarios": [{"id": sid, "description": what, "expected_outcome": _expected(expect)}
+                              for sid, (what, expect) in ext.SCENARIOS.items()]}
+    if rt().producer is None:   # a real topic with no drift switch: nothing to break from here
+        return {"mode": "none", "active": {"scenario": None, "since": None}, "scenarios": []}
     out = []
     for sid in list_scenarios():
         sc = load_scenario(sid)
         out.append({"id": sid, "description": sc.get("description", ""),
                     "expected_outcome": sc.get("expected_outcome")})
-    return {"active": rt().drift.get(), "scenarios": out}
+    return {"mode": "demo", "active": rt().drift.get(), "scenarios": out}
 
 
 @app.get("/api/dlq")
@@ -317,6 +363,13 @@ class ChaosRequest(BaseModel):
 
 @app.post("/api/chaos")
 async def inject(req: ChaosRequest):
+    ext = _external_drifts()
+    if ext is not None:
+        if req.scenario not in ext.SCENARIOS:
+            raise HTTPException(404, f"unknown drift {req.scenario!r}; have {sorted(ext.SCENARIOS)}")
+        return _set_external_drift(ext, req.scenario)
+    if rt().producer is None:
+        raise HTTPException(409, "this pipeline's upstream has no drift switch (producer/drifts.py)")
     if req.scenario not in list_scenarios():
         raise HTTPException(404, f"unknown scenario {req.scenario!r}")
     return rt().set_drift(req.scenario)
@@ -324,6 +377,9 @@ async def inject(req: ChaosRequest):
 
 @app.delete("/api/chaos")
 async def clear_chaos():
+    ext = _external_drifts()
+    if ext is not None:
+        return _set_external_drift(ext, None)
     return rt().set_drift(None)
 
 
