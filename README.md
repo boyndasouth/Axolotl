@@ -43,7 +43,7 @@ Python 3.12 recommended. On Windows, keep the project **outside OneDrive**; sync
 python -m venv .venv
 .venv\Scripts\Activate.ps1
 pip install -r requirements.txt
-copy .env.example .env          # then add an API key, e.g. GROQ_API_KEY
+copy .env.example .env          # then add GEMINI_API_KEY (the default models are Gemini)
 docker build -t shp-sandbox:latest sandbox/
 docker compose up -d            # Redpanda (Kafka API) + Redpanda Console
 git init; git add .; git commit -m "initial commit"   # the diagnosis agent reads git history
@@ -108,8 +108,8 @@ Two things the healer is careful about on real data. The built-in fake upstream 
 ## Benchmark
 
 ```powershell
-python -m bench.stream_harness --runs 3 --label "groq llama-3.3-70b"   # break a live stream
-python -m bench.harness --runs 3 --label "groq llama-3.3-70b"          # batch version
+python -m bench.stream_harness --runs 3 --label "gemini 3.5 flash-lite + 3.8 flash"   # break a live stream
+python -m bench.harness --runs 3 --label "gemini 3.5 flash-lite + 3.8 flash"          # batch version
 ```
 
 The console's **Benchmark** tab shows the results; `streamlit run dashboard/app.py` has more charts.
@@ -145,7 +145,9 @@ Everything is an environment variable; `.env.example` lists them all. The ones y
 | Variable | Default | What it does |
 |---|---|---|
 | `SHP_BUS` | `auto` | `kafka` (Redpanda), `memory` (one process, no broker) or `auto` |
-| `DIAGNOSIS_MODEL`, `REPAIR_MODEL` | Groq Llama 3.3 70B | any LiteLLM model string |
+| `DIAGNOSIS_MODEL` | `gemini/gemini-3.5-flash-lite` | any LiteLLM model string, e.g. `groq/llama-3.3-70b-versatile` |
+| `REPAIR_MODEL` | `gemini/gemini-3.8-flash` | any LiteLLM model string; the repair agent writes whole files, so a stronger model pays off here |
+| `GEMINI_API_KEY` | empty | key for the default models; other providers use their own (`GROQ_API_KEY`, ...) |
 | `SHP_FAKE_LLM` | empty | `oracle` for the scripted stand-in |
 | `SHP_RATE` | `25` | upstream records per second (also a slider in the console) |
 | `SHP_WINDOW_S`, `SHP_MIN_BAD`, `SHP_MIN_DLQ_RATE`, `SHP_SILENCE_S` | 10, 5, 0.02, 12 | detection thresholds |
