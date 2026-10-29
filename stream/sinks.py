@@ -97,14 +97,16 @@ class DuckDBSink(Sink):
             try:
                 n = self._con.execute(
                     f"INSERT INTO {_duck_ident(self.table)} ({self._cols}, loaded_at) "
-                    f"SELECT {self._cols}, now() FROM incoming ON CONFLICT DO NOTHING").fetchone()[0]
+                    f"SELECT {self._cols}, now() FROM incoming ON CONFLICT DO NOTHING").fetchall()[0][0]
             finally:
                 self._con.unregister("incoming")
         return int(n), len(df) - int(n)
 
     def count(self):
         with self._lock:
-            return int(self._con.execute(f"SELECT count(*) FROM {_duck_ident(self.table)}").fetchone()[0])
+            # fetchall, not fetchone: DuckDB 2.x refuses new work on a connection until the
+            # previous result is fully consumed, and this connection is long-lived.
+            return int(self._con.execute(f"SELECT count(*) FROM {_duck_ident(self.table)}").fetchall()[0][0])
 
     def recent(self, n=20):
         with self._lock:

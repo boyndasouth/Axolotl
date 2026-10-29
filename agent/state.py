@@ -91,6 +91,7 @@ class PipelineState(TypedDict, total=False):
     # outcome
     status: Status
     pr_url: Optional[str]
+    pr_error: Optional[str]          # set when GitHub failed and the PR was written locally instead
     escalation_reason: Optional[str]
     rollout: Optional[dict]             # streaming only: patch applied, DLQ replay, live check
 

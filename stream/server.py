@@ -130,7 +130,6 @@ async def lifespan(app: FastAPI):
 
     def build():
         return Runtime(workdir=Path(os.environ.get("SHP_WORKDIR") or REPO_ROOT), publish=hub.publish,
-                       # unset: follow healer.yaml's source.demo_producer
                        embedded_producer=(os.environ["SHP_EMBEDDED_PRODUCER"] != "0")
                        if os.environ.get("SHP_EMBEDDED_PRODUCER") else None,
                        rate=float(os.environ.get("SHP_RATE", "25")),
@@ -209,7 +208,7 @@ async def incident(incident_id: str):
         "diagnosis": v.get("diagnosis"),
         "attempts": [_attempt(h) for h in v.get("history", [])],
         "max_attempts": v.get("max_attempts"),
-        "pr_url": v.get("pr_url"), "pr_body": pr_body,
+        "pr_url": v.get("pr_url"), "pr_error": v.get("pr_error"), "pr_body": pr_body,
         "escalation_reason": v.get("escalation_reason"),
         "escalation_body": esc.read_text(encoding="utf-8") if esc.exists() else None,
         "rollout": v.get("rollout"),

@@ -68,6 +68,16 @@ function CurrentIncident({ rows, waiting, prMode, demo = true }: { rows: Inciden
       </div>
       {inc && <div className="mt-4"><StageTrack inc={inc} compact /></div>}
       {inc?.waiting_for_decision && <div className="mt-4"><Decision inc={inc} waiting={waiting} prMode={prMode} /></div>}
+      {inc?.status === "error" && (
+        <p className="mt-3 text-[14px] text-fault">
+          The agent crashed: {[...inc.events].reverse().find((e) => e.kind === "agent_error")?.data.error ?? "see the full incident"}
+        </p>
+      )}
+      {inc?.pr_error && (
+        <p className="mt-3 text-[14px] text-quarantine-ink">
+          Couldn't open a GitHub PR, so it was written locally instead. You can still approve it here. ({inc.pr_error})
+        </p>
+      )}
       {inc?.status === "escalated" && (
         <p className="mt-3 text-[14px] text-fault">Handed to a human: {inc.escalation_reason}</p>
       )}

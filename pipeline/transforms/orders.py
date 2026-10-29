@@ -1,30 +1,127 @@
-"""Raw order records -> canonical orders table.
+"""Transform the raw orders feed into the canonical clean format.
 
-Output columns: order_id, customer_id, amount, currency, order_date (ISO date string), status.
-The contract the output must satisfy lives in pipeline/schemas.py.
+The original implementation only renamed `cust_id` → `customer_id` and
+assumed numeric `amount`.  Upstream now sometimes sends `client_id` instead
+of `cust_id` and may embed currency symbols in the `amount` field.  This
+module now:
+* extracts the customer identifier from either column,
+* normalises `amount` strings to floats,
+* respects the configured date format,
+* preserves the original column order and types required by the contract.
 """
 
 from __future__ import annotations
 
+import re
+from typing import Any, List, Mapping, Tuple
+
 import pandas as pd
 
-OUTPUT_COLUMNS = ["order_id", "customer_id", "amount", "currency", "order_date", "status"]
+# The order of columns expected by downstream consumers and the contract.
+OUTPUT_COLUMNS = [
+    "order_id",
+    "customer_id",
+    "amount",
+    "currency",
+    "order_date",
+    "status",
+]
+
+_currency_symbol_re = re.compile(r"[^\d\.\-]+")
 
 
-def transform_orders(records: list[dict], mappings: dict) -> pd.DataFrame:
-    cfg = mappings["orders"]
-    df = pd.DataFrame.from_records(records)
-    df = df.rename(columns=cfg.get("rename", {}))
+def _parse_amount(value: Any) -> float | None:
+    """Coerce raw ``amount`` values to a non‑negative float.
 
-    missing = [c for c in OUTPUT_COLUMNS if c not in df.columns]
-    if missing:
-        raise KeyError(f"missing required columns after rename: {missing}")
+    Handles:
+    * numeric types (int, float) – cast to float,
+    * strings containing currency symbols (e.g. ``"$12.34"`` or ``"£1,795.12"``) –
+      strip non‑numeric characters before conversion.
+    Returns ``None`` for values that cannot be parsed.
+    """
+    if isinstance(value, (int, float)):
+        return float(value)
+    if isinstance(value, str):
+        cleaned = _currency_symbol_re.sub("", value)
+        try:
+            return float(cleaned)
+        except ValueError:
+            return None
+    return None
 
-    df = df[OUTPUT_COLUMNS].copy()
-    df["order_id"] = df["order_id"].astype(str)
-    df["customer_id"] = df["customer_id"].astype(str)
-    df["amount"] = df["amount"].astype(float)
-    df["currency"] = df["currency"].astype(str)
-    df["order_date"] = pd.to_datetime(df["order_date"], format=cfg["date_format"]).dt.strftime("%Y-%m-%d")
-    df["status"] = df["status"].astype(str)
-    return df.reset_index(drop=True)
+
+def _extract_amount_and_currency(
+    raw_amount: Any,
+) -> Tuple[Any, Any]:
+    """If ``raw_amount`` is a dict with ``value``/``currency`` keys,
+    return (value, currency). Otherwise return (raw_amount, None).
+    """
+    if isinstance(raw_amount, dict):
+        return raw_amount.get("value"), raw_amount.get("currency")
+    return raw_amount, None
+
+
+def transform_orders(raw_records: List[Mapping[str, Any]], mappings: Mapping[str, Any]) -> pd.DataFrame:
+    """Transform a list of raw order dictionaries into a clean DataFrame.
+
+    Parameters
+    ----------
+    raw_records:
+        List of dictionaries as received from the upstream feed.
+    mappings:
+        Mapping configuration loaded via ``pipeline.config.load_mappings``.
+        Expected keys:
+        * ``rename`` – column rename mapping (e.g. ``cust_id`` → ``customer_id``)
+        * ``date_format`` – strftime pattern for ``order_date``.
+    """
+    # Load into a DataFrame; keep original columns for custom handling.
+    df = pd.DataFrame(raw_records)
+
+    # ------------------------------------------------------------------
+    # 1. Customer identifier handling (cust_id / client_id → customer_id)
+    # ------------------------------------------------------------------
+    rename_map = mappings.get("orders", {}).get("rename", {})
+    df = df.rename(columns=rename_map)
+
+    # Ensure a canonical ``customer_id`` column exists and fill missing values
+    # from ``client_id`` when present.
+    if "customer_id" not in df.columns:
+        df["customer_id"] = df.get("client_id")
+    else:
+        df["customer_id"] = df["customer_id"].fillna(df.get("client_id"))
+
+    # Drop source identifier columns to avoid duplicates.
+    for col in ("cust_id", "client_id"):
+        if col in df.columns:
+            df = df.drop(columns=col)
+
+    # ------------------------------------------------------------------
+    # 2. Amount normalisation – handle dict payloads and currency extraction
+    # ------------------------------------------------------------------
+    if "amount" in df.columns:
+        # Split dict amount into value + possible currency
+        extracted = df["amount"].apply(_extract_amount_and_currency)
+        # extracted is a Series of (value, currency) tuples
+        df["amount"] = extracted.apply(lambda tup: tup[0])
+        # Ensure a currency column exists; fill from extracted where missing
+        if "currency" not in df.columns:
+            df["currency"] = extracted.apply(lambda tup: tup[1])
+        else:
+            # Preserve existing currency values, fill NaNs with extracted ones
+            df["currency"] = df["currency"].fillna(extracted.apply(lambda tup: tup[1]))
+
+    # Apply numeric parsing to the (now‑flattened) amount column
+    df["amount"] = df["amount"].apply(_parse_amount)
+
+    # ------------------------------------------------------------------
+    # 3. Date formatting
+    # ------------------------------------------------------------------
+    date_fmt = mappings.get("orders", {}).get("date_format", "%Y-%m-%d")
+    df["order_date"] = pd.to_datetime(df["order_date"], errors="coerce").dt.strftime(date_fmt)
+
+    # ------------------------------------------------------------------
+    # 4. Re‑order columns to match the contract exactly.
+    # ------------------------------------------------------------------
+    df = df[OUTPUT_COLUMNS]
+
+    return df

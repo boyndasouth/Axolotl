@@ -22,7 +22,9 @@ SIZED_TYPES = {"edit", "new"}
 
 
 def _edited_at(value, unit: str) -> str:
-    seconds = int(value) / (1000 if unit == "ms" else 1)
+    seconds = int(float(value))
+    if seconds > 99_999_999_999 or unit == "ms":
+        seconds /= 1000
     return datetime.fromtimestamp(seconds, tz=timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
 
 

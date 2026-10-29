@@ -61,7 +61,7 @@ export type Incident = IncidentRow & {
     evidence: string[]; target_files: string[]; fix_plan: string;
   };
   attempts: Attempt[]; max_attempts: number;
-  pr_url: string | null; pr_body: string | null;
+  pr_url: string | null; pr_error?: string | null; pr_body: string | null;
   escalation_reason: string | null; escalation_body: string | null;
   rollout: Rollout | null;
   timestamps: Record<string, number>;

@@ -18,6 +18,6 @@ def load_orders(df: pd.DataFrame, path: Path = WAREHOUSE) -> int:
     try:
         con.register("incoming", df)
         con.execute("CREATE OR REPLACE TABLE orders_clean AS SELECT * FROM incoming")
-        return con.execute("SELECT count(*) FROM orders_clean").fetchone()[0]
+        return con.execute("SELECT count(*) FROM orders_clean").fetchall()[0][0]
     finally:
         con.close()
